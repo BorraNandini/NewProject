@@ -201,7 +201,7 @@
         })
           .then((data) => {
             if (data.ok) {
-              window.location.reload();
+              window.location.href = "/index";
             } else {
               console.error("Error saving post", data.message);
             }

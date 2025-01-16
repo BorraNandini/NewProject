@@ -15,7 +15,6 @@ mongoose.set("strictQuery", false);
 const uri = "mongodb://localhost:27017";
 mongoose.connect(uri, { dbName: "userDashboard" });
 
-// Define the User schema with the new fields
 const User = mongoose.model("User", {
   username: String,
   email: String,
@@ -50,9 +49,8 @@ app.use(
 );
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Set EJS as the view engine
 app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views")); // Set the views folder for EJS templates
+app.set("views", path.join(__dirname, "views"));
 
 function authenticateJWT(req, res, next) {
   const token = req.session.token;
@@ -82,7 +80,6 @@ function requireAuth(req, res, next) {
   }
 }
 
-// Routes to render EJS templates
 app.get("/", (req, res) =>
   req.session.token
     ? res.redirect("/index")
@@ -104,16 +101,15 @@ app.get("/login", (req, res) =>
 );
 
 app.get("/index", requireAuth, (req, res) => {
-  const userId = req.user.userId; // Get userId from JWT payload
+  const userId = req.user.userId;
 
-  // Fetch posts associated with the logged-in user
   Post.find({ userId })
     .then((posts) => {
       res.render("index", {
         username: req.user.username,
         posts,
         token: req.session.token,
-      }); // Pass posts to the template
+      });
     })
     .catch((error) => {
       console.error("Error fetching posts:", error);
@@ -124,9 +120,9 @@ app.get("/index", requireAuth, (req, res) => {
 app.get("/post", requireAuth, (req, res) => res.render("posts"));
 
 app.get("/posts", authenticateJWT, (req, res) => {
-  const userId = req.user.userId; // Extract userId from the authenticated user
+  const userId = req.user.userId;
 
-  Post.find({ userId: userId }) // Fetch posts only for this user
+  Post.find({ userId: userId })
     .sort({ _id: -1 })
     .then((posts) => {
       if (posts.length === 0) {
@@ -134,7 +130,7 @@ app.get("/posts", authenticateJWT, (req, res) => {
           .status(404)
           .json({ message: "No posts found for this user" });
       }
-      res.json({ posts }); // Send back the user's posts
+      res.json({ posts });
     })
     .catch((err) => {
       console.error(err);
@@ -145,18 +141,16 @@ app.get("/posts", authenticateJWT, (req, res) => {
 app.get("/posts/:postId", authenticateJWT, (req, res) => {
   const postId = req.params.postId;
 
-  // Check if postId is a valid ObjectId (if you're using ObjectId in MongoDB)
   if (!ObjectId.isValid(postId)) {
     return res.status(400).json({ message: "Invalid post ID format" });
   }
 
-  // Fetch the post from the database
   Post.findById(postId)
     .then((post) => {
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
       }
-      res.json(post); // Send the post as JSON
+      res.json(post);
     })
     .catch((error) => {
       res.status(500).json({ message: "Error fetching post", error });
@@ -165,15 +159,14 @@ app.get("/posts/:postId", authenticateJWT, (req, res) => {
 
 app.get("/api/users", async (req, res) => {
   try {
-    const users = await User.find(); // Find all users
-    res.status(200).json(users); // Return the users as a JSON response
+    const users = await User.find();
+    res.status(200).json(users);
   } catch (error) {
     console.error("Error fetching users:", error);
-    res.status(500).json({ message: "Internal Server Error" }); // Handle errors
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-//register
 app.post("/register", async (req, res) => {
   const {
     firstName,
@@ -192,7 +185,6 @@ app.post("/register", async (req, res) => {
     confirmPassword,
   } = req.body;
 
-  // Check if passwords match
   if (password !== confirmPassword) {
     return res.redirect("/register?error=Passwords do not match");
   }
@@ -221,7 +213,6 @@ app.post("/register", async (req, res) => {
 
     await newUser.save();
 
-    // Redirect to login page after successful registration
     res.redirect("/login");
   } catch (error) {
     console.error(error);
@@ -233,44 +224,31 @@ app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // Find the user based on username (ideally, password should be hashed)
     const user = await User.findOne({ username });
 
     if (!user || user.password !== password) {
-      // If invalid credentials, redirect back to login with error message
       return res.redirect(`/login?error=Incorrect username or password`);
-      //   console.log("error message");
-      //   const errorMessage = "Incorrect username and password";
-      //  return res.render('login',{error:errorMessage} );
     }
 
-    // Generate the token
     const token = jwt.sign(
       { userId: user._id, username: user.username },
       SECRET_KEY,
       { expiresIn: "1h" }
     );
-    // console.log(token);  // Log the generated token for debugging
 
-    // Store the token in session for session-based authentication (optional)
     req.session.token = token;
-    //console.log(token);
 
-    // For Postman: Return the token as a response
     if (req.headers.accept && req.headers.accept.includes("application/json")) {
-      return res.json({ token }); // Send the token as JSON
+      return res.json({ token });
     }
 
-    // For Browser: Redirect to the index page
     res.redirect("/index");
-    // Optionally, you could send the token in a cookie instead
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-// Create post
 app.post("/posts", authenticateJWT, upload.single("image"), (req, res) => {
   const { title, text } = req.body;
   const imageUrl = req.file ? "/uploads/" + req.file.filename : "";
@@ -308,7 +286,6 @@ app.post("/posts", authenticateJWT, upload.single("image"), (req, res) => {
     });
 });
 
-//create user
 app.post("/api/users", async (req, res) => {
   const { username, email, password } = req.body;
   try {
@@ -327,19 +304,24 @@ app.put("/posts/:id", authenticateJWT, upload.single("image"), (req, res) => {
   const { title, text } = req.body;
   const imageUrl = req.file ? req.file.path : null;
 
-  Post.findByIdAndUpdate(
-    req.params.id,
-    { title, text, imageUrl },
-    { new: true }
-  )
+  Post.findById(req.params.id)
     .then((post) => {
       if (!post) return res.status(404).json({ error: "Post not found" });
-      res.json({ success: true, post });
+
+      const updateData = {};
+
+      if (title) updateData.title = title;
+      if (text) updateData.text = text;
+      if (imageUrl) updateData.imageUrl = imageUrl;
+
+      return post.updateOne(updateData);
+    })
+    .then((updatedPost) => {
+      res.json({ success: true, post: updatedPost });
     })
     .catch((err) => res.status(500).json({ error: "Error updating post" }));
 });
 
-//update users
 app.put("/api/users/:id", async (req, res) => {
   const userId = req.params.id;
   const { username, email, password } = req.body;
@@ -364,7 +346,6 @@ app.put("/api/users/:id", async (req, res) => {
   }
 });
 
-// Delete post
 app.delete("/posts/:postId", authenticateJWT, (req, res) => {
   const postId = req.params.postId;
 
@@ -377,7 +358,6 @@ app.delete("/posts/:postId", authenticateJWT, (req, res) => {
     .catch(() => res.status(500).json({ message: "Error deleting post" }));
 });
 
-//delete users
 app.delete("/api/users/:id", async (req, res) => {
   const userId = req.params.id;
 
@@ -397,7 +377,6 @@ app.delete("/api/users/:id", async (req, res) => {
   }
 });
 
-// Logout
 app.get("/logout", (req, res) => {
   console.log("logged out");
   console.log(req.session);
@@ -411,6 +390,5 @@ app.get("/logout", (req, res) => {
   });
 });
 
-// Start server
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
 `  `;
