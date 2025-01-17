@@ -89,8 +89,14 @@ app.get("/", (req, res) =>
       })
 );
 
-app.get("/register", (req, res) => res.render("register"));
-
+app.get("/register", (req, res) =>
+  req.session.token
+    ? res.redirect("/index")
+    : res.render("register", {
+        username: req.user ? req.user.username : null,
+        token: req.session.token,
+      })
+);
 app.get("/login", (req, res) =>
   req.session.token
     ? res.redirect("/login")
